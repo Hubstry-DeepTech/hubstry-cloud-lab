@@ -123,8 +123,9 @@ desta entrega.
 
 Persistir. Pendências:
 
-1. apagar o `hubstry-guarda-credito`, que é ineficaz e conta como terceiro
-   orçamento (decisão do Guilherme);
+1. `hubstry-guarda-credito` apagado pelo Guilherme em 02/11/2026
+   (`aws budgets delete-budget`, executado como `admin-solo`), por ser
+   ineficaz: descontava créditos e nunca alertaria;
 2. acesso diário: resolvido pela entrega 0002 em 02/11/2026. O trabalho
    diário passa ao `admin-solo`, com MFA, e o freio apontado a ele fica
    efetivo. O root, que o freio não alcança, fica reservado.

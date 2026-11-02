@@ -56,11 +56,36 @@ Feito pelo Guilherme em 02/11/2026, nesta ordem:
 
 ## Medição
 
-Evidência a anexar (CloudShell, logado como `admin-solo`):
+Evidência do CloudShell, logado como `admin-solo`, em 02/11/2026:
 
 ```text
-(saída pendente)
+$ aws sts get-caller-identity --query Arn --output text
+arn:aws:iam::000185047928:user/admin-solo
+
+$ aws iam list-mfa-devices --user-name admin-solo --query 'MFADevices[].[SerialNumber,EnableDate]' --output text
+arn:aws:iam::000185047928:mfa/mobile    2026-11-02T21:57:06+00:00
+
+$ aws iam list-virtual-mfa-devices --assignment-status Assigned --query 'VirtualMFADevices[].[SerialNumber,User.Arn]' --output text
+arn:aws:iam::000185047928:mfa/celular   arn:aws:iam::000185047928:root
+arn:aws:iam::000185047928:mfa/mobile    arn:aws:iam::000185047928:user/admin-solo
+
+$ aws iam list-access-keys --user-name admin-solo --output text
+(vazio)
+
+$ bash orcamentos.sh   # commit 5dad048
+== Todos os guardrails existem e conferem com a configuração esperada.
 ```
+
+**Interpretação.**
+
+- A sessão do CloudShell é do `admin-solo`, o que comprova o login com
+  senha e MFA.
+- O único dispositivo MFA do `admin-solo` é virtual (`mfa/`, aplicativo
+  autenticador TOTP); não há passkey (`u2f`) remanescente.
+- O root também usa dispositivo virtual.
+- O `admin-solo` não tem chaves de acesso.
+- Os nomes dos dispositivos são `celular` (root) e `mobile` (`admin-solo`).
+  A AWS não permite renomear dispositivo MFA; trocar exige recadastrar.
 
 **Fato já registrado** na entrega 0001: `AccountMFAEnabled = 1` e
 `AccountAccessKeysPresent = 0` (root com MFA e sem chaves de acesso).
