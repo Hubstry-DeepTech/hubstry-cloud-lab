@@ -77,12 +77,13 @@ if existe_orc hubstry-quantico-gpu; then
   confere "quantico-gpu IncludeCredit" "$(credito_orc hubstry-quantico-gpu)" "False"
   confere "quantico-gpu serviços" "$(servicos_orc hubstry-quantico-gpu)" "Amazon Braket,Amazon Elastic Compute Cloud - Compute"
   # O freio da ação (passo 4) cria um aviso ACTUAL:100 próprio; o de 80% é o de e-mail.
-  # O aviso de 80% é o de e-mail; a ação de freio (passo 4) pode registrar um aviso próprio de 100%.
+  # O aviso de 80% é o de e-mail; a ação de freio (passo 4) pode registrar um aviso próprio de 100%,
+  # aceito só com o mesmo destinatário.
   AV=$(avisos_orc hubstry-quantico-gpu)
   A80="ACTUAL|GREATER_THAN|80|PERCENTAGE|EMAIL:$EMAIL"
   case "$AV" in
-    "$A80"|"ACTUAL|GREATER_THAN|100|PERCENTAGE|"*";$A80") echo "  ok: quantico-gpu avisos = $AV";;
-    *) falhou "quantico-gpu avisos divergentes: encontrado '$AV', esperado '$A80' (mais, no máximo, o aviso de 100% da ação)";;
+    "$A80"|"ACTUAL|GREATER_THAN|100|PERCENTAGE|EMAIL:$EMAIL;$A80") echo "  ok: quantico-gpu avisos = $AV";;
+    *) falhou "quantico-gpu avisos divergentes: encontrado '$AV', esperado '$A80' (mais, no máximo, um aviso de 100% para EMAIL:$EMAIL)";;
   esac
 fi
 
@@ -90,9 +91,13 @@ passo "3. Política de freio e papel do Budgets"
 if aws iam get-policy --policy-arn "$POLITICA_ARN" >/dev/null 2>&1; then echo "política já existe; conferindo"; else
 aws iam create-policy --policy-name hubstry-freio-quantico-gpu --policy-document "$POLITICA" >/dev/null && echo "política criada; conferindo" || falhou "criar política de freio"; fi
 VER=$(aws iam get-policy --policy-arn "$POLITICA_ARN" --query 'Policy.DefaultVersionId' --output text 2>/dev/null)
-if [ -n "$VER" ] && [ "$VER" != "None" ]; then
-  ATUAL=$(aws iam get-policy-version --policy-arn "$POLITICA_ARN" --version-id "$VER" --query 'PolicyVersion.Document' --output json | jq -cS .)
-  confere "documento da política de freio ($VER)" "$ATUAL" "$(echo "$POLITICA" | jq -cS .)"
+# Falha ao ler a versão ou o documento conta como falha, e não pula a comparação.
+if [ -z "$VER" ] || [ "$VER" = "None" ]; then
+  falhou "não foi possível ler a versão padrão da política de freio"
+else
+  ATUAL=$(aws iam get-policy-version --policy-arn "$POLITICA_ARN" --version-id "$VER" --query 'PolicyVersion.Document' --output json 2>/dev/null | jq -cS . 2>/dev/null)
+  if [ -z "$ATUAL" ]; then falhou "não foi possível ler o documento da política de freio ($VER)"
+  else confere "documento da política de freio ($VER)" "$ATUAL" "$(echo "$POLITICA" | jq -cS .)"; fi
 fi
 if aws iam get-role --role-name hubstry-budgets-actions >/dev/null 2>&1; then echo "papel já existe; conferindo"; else
 aws iam create-role --role-name hubstry-budgets-actions --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"budgets.amazonaws.com"},"Action":"sts:AssumeRole"}]}' >/dev/null \
@@ -134,10 +139,15 @@ if [ -n "$ACOES" ]; then
 else falhou "não foi possível ler as ações do orçamento quântico/GPU"; fi
 
 passo "5. Alerta de anomalias (usa o monitor por serviço já existente; só um é permitido)"
-MON=$(aws ce get-anomaly-monitors --query "AnomalyMonitors[?MonitorType=='DIMENSIONAL'].MonitorArn | [0]" --output text 2>/dev/null)
+MON=$(aws ce get-anomaly-monitors --query "AnomalyMonitors[?MonitorType=='DIMENSIONAL' && MonitorDimension=='SERVICE'].MonitorArn | [0]" --output text 2>/dev/null)
 if [ -z "$MON" ] || [ "$MON" = "None" ]; then
  MON=$(aws ce create-anomaly-monitor --anomaly-monitor '{"MonitorName":"hubstry-servicos","MonitorType":"DIMENSIONAL","MonitorDimension":"SERVICE"}' --query MonitorArn --output text) && echo "monitor criado" || falhou "criar monitor de anomalias"
 else echo "monitor existente: $MON"; fi
+# O monitor usado precisa ser por serviço (DIMENSIONAL + SERVICE).
+if [ -n "$MON" ] && [ "$MON" != "None" ]; then
+  confere "anomalias: tipo do monitor" \
+    "$(aws ce get-anomaly-monitors --monitor-arn-list "$MON" --output json 2>/dev/null | jq -r '.AnomalyMonitors[0] | "\(.MonitorType) \(.MonitorDimension)"')" "DIMENSIONAL SERVICE"
+fi
 ASS=$(aws ce get-anomaly-subscriptions --output json 2>/dev/null | jq -c '[.AnomalySubscriptions[] | select(.SubscriptionName=="hubstry-anomalias")]')
 if [ "$(echo "${ASS:-[]}" | jq length)" = "0" ]; then
  aws ce create-anomaly-subscription --anomaly-subscription '{"SubscriptionName":"hubstry-anomalias","MonitorArnList":["'"$MON"'"],"Subscribers":[{"Type":"EMAIL","Address":"'"$EMAIL"'"}],"Frequency":"DAILY","ThresholdExpression":{"Dimensions":{"Key":"ANOMALY_TOTAL_IMPACT_ABSOLUTE","MatchOptions":["GREATER_THAN_OR_EQUAL"],"Values":["20"]}}}' >/dev/null && echo "assinatura criada; conferindo" || falhou "criar assinatura de anomalias"

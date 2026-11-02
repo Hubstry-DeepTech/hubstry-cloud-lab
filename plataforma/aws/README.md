@@ -17,7 +17,7 @@ Oferecer uma base compartilhada para colocar em produção os produtos do portf�
 | Região principal | `sa-east-1` (São Paulo) |
 | Região secundária | `us-east-1`, só para o Amazon Braket, que não existe em São Paulo |
 | Operação | Fundador solo; revisão independente pela Luna; decisão do Guilherme |
-| Estado atual da conta | Sem AWS Organizations nem Identity Center (verificado em todas as regiões em 02/11/2026). Usuários IAM: `admin-solo` (com `AdministratorAccess`, senha de console nova e MFA por passkey desde 02/11/2026; sem chaves de acesso; é o acesso diário) e `alexandria-deploy-user` (duas chaves de acesso **desativadas** pelo Guilherme em 02/11/2026; estavam sem uso desde agosto de 2025, e nenhum repositório da Alexandria faz deploy com elas). O root, com MFA, fica reservado para tarefas que só ele pode fazer. Sem computação ativa. Há 9 buckets S3, 4 distribuições CloudFront e 2 apps Amplify em `us-east-2`, ligados às Alexandrias e a sites |
+| Estado atual da conta | Sem AWS Organizations nem Identity Center (verificado em todas as regiões em 02/11/2026). Usuários IAM: `admin-solo` (com `AdministratorAccess`, senha de console nova e MFA por aplicativo autenticador (TOTP) desde 02/11/2026; sem chaves de acesso; é o acesso diário) e `alexandria-deploy-user` (duas chaves de acesso **desativadas** pelo Guilherme em 02/11/2026; estavam sem uso desde agosto de 2025, e nenhum repositório da Alexandria faz deploy com elas). O root, com MFA, fica reservado para tarefas que só ele pode fazer. Sem computação ativa. Há 9 buckets S3, 4 distribuições CloudFront e 2 apps Amplify em `us-east-2`, ligados às Alexandrias e a sites |
 
 A escolha de `sa-east-1` tem três fundamentos. A latência é menor para o público brasileiro. Os dados ficam no país. E o X-Layer lê o bucket público do ONS (Operador Nacional do Sistema Elétrico), `ons-aws-prod-opendata`, que está em `sa-east-1`, o que evita transferência entre regiões.
 
@@ -64,7 +64,7 @@ Princípio de custo: tudo o que não precisa ficar ligado roda sob demanda. GPU 
 | Etapa | Entrega | Critério de avanço |
 |---|---|---|
 | 0001 | Guardrails de custo | Entregue |
-| 0002 | Acesso diário sem root: usuário `admin-solo` com `AdministratorAccess` e MFA | **Entregue em 02/11/2026.** Chaves da Alexandria desativadas; senha antiga e desconhecida do `admin-solo` removida e substituída por uma nova, criada pelo Guilherme; login testado em janela anônima; MFA por passkey no `admin-solo` e no root |
+| 0002 | Acesso diário sem root: usuário `admin-solo` com `AdministratorAccess` e MFA | **Entregue em 02/11/2026.** Chaves da Alexandria desativadas; senha antiga e desconhecida do `admin-solo` removida e substituída por uma nova, criada pelo Guilherme; login testado em janela anônima; MFA por aplicativo autenticador no `admin-solo` (uma passkey cadastrada antes foi trocada pelo autenticador) e no root. Evidência em `entregas/0002-acesso-admin-solo.md` |
 | 0003 | Fundação: VPC, ALB, cluster ECS, ECR, provedor OIDC, convenções de tags | Auditoria da Luna; custo fixo medido |
 | 0004 | RDS compartilhado com banco do Nautam e snapshot automatizado | Banco privado, backup ativo |
 | 0005 | Nautam em produção: API no ECS, frontend no Amplify | CI verde, testes de saúde e de persistência |
