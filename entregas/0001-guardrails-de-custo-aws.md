@@ -65,10 +65,15 @@ A terceira coluna dos orçamentos é `IncludeCredit`. A última linha é a açã
 Depois da segunda auditoria da Luna, o script passou a conferir cada recurso
 existente contra a configuração esperada (limite, `IncludeCredit`, avisos,
 serviços filtrados, documento da política, confiança do papel, definição da
-ação, usuário-alvo e limiar das anomalias). Divergência e falha nos comandos
+ação, usuário-alvo e limiar das anomalias). Na terceira auditoria, a
+conferência passou a cobrir também destinatários, operador e tipo de
+limiar de cada aviso, destinatários da ação de freio, a política de
+confiança completa do papel e permissões além da esperada (políticas
+anexadas, inline e limite de permissões). Divergência e falha nos comandos
 de conferência do resumo contam como erro, e o script sai com código 1. A
 verificação foi testada com um `aws` simulado nos cenários correto e
-divergente; falta rodar a versão nova no CloudShell para registrar a saída
+divergente, e também com destinatário trocado, política inline extra e
+confiança ampliada; falta rodar a versão nova no CloudShell para registrar a saída
 real aqui.
 
 **Limite reconhecido:** orçamento e freio não são teto rígido de gasto. O Budgets atualiza o custo com atraso de horas, e o freio só bloqueia novas tarefas do Braket e novas instâncias de GPU; recursos já ligados continuam cobrando até serem desligados.

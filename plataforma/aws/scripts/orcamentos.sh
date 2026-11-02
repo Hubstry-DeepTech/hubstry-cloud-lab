@@ -41,8 +41,15 @@ credito_orc()  { aws budgets describe-budget --account-id "$ACC" --budget-name "
 servicos_orc() { aws budgets describe-budget --account-id "$ACC" --budget-name "$1" --output json | jq -r '[.Budget.CostFilters.Service // [] | .[]] | sort | join(",")'; }
 # Notificações como "TIPO:limiar" ordenadas, ex.: ACTUAL:100,ACTUAL:50,FORECASTED:100
 avisos_orc() {
-  aws budgets describe-notifications-for-budget --account-id "$ACC" --budget-name "$1" --output json \
-    | jq -r '[.Notifications[] | "\(.NotificationType):\(.Threshold | tostring | sub("\\.0$"; ""))"] | sort | join(",")'
+  # Cada aviso vira "TIPO|OPERADOR|LIMIAR|TIPO_DO_LIMIAR|destinatários", em linhas ordenadas.
+  # Os destinatários vêm de describe-subscribers-for-notification, um aviso por vez.
+  local notas n subs
+  notas=$(aws budgets describe-notifications-for-budget --account-id "$ACC" --budget-name "$1" --output json) || { echo "ERRO"; return; }
+  echo "$notas" | jq -c '.Notifications[]' | while read -r n; do
+    subs=$(aws budgets describe-subscribers-for-notification --account-id "$ACC" --budget-name "$1" --notification "$n" --output json \
+      | jq -r '[.Subscribers[] | "\(.SubscriptionType):\(.Address)"] | sort | join("+")') || subs="ERRO"
+    echo "$n" | jq -r --arg s "$subs" '"\(.NotificationType)|\(.ComparisonOperator)|\(.Threshold|tostring|sub("\\.0$";""))|\(.ThresholdType)|\($s)"'
+  done | sort | paste -sd ';' -
 }
 
 passo "1. hubstry-mensal-total (US\$ 150, custo bruto)"
@@ -54,7 +61,8 @@ aws budgets create-budget --account-id "$ACC" \
 if existe_orc hubstry-mensal-total; then
   confere "mensal-total limite" "$(limite_orc hubstry-mensal-total)" "150"
   confere "mensal-total IncludeCredit" "$(credito_orc hubstry-mensal-total)" "False"
-  confere "mensal-total avisos" "$(avisos_orc hubstry-mensal-total)" "ACTUAL:100,ACTUAL:50,FORECASTED:100"
+  confere "mensal-total avisos" "$(avisos_orc hubstry-mensal-total)" \
+    "ACTUAL|GREATER_THAN|100|PERCENTAGE|EMAIL:$EMAIL;ACTUAL|GREATER_THAN|50|PERCENTAGE|EMAIL:$EMAIL;FORECASTED|GREATER_THAN|100|PERCENTAGE|EMAIL:$EMAIL"
 fi
 
 passo "2. hubstry-quantico-gpu (US\$ 60, Braket + EC2)"
@@ -68,8 +76,13 @@ if existe_orc hubstry-quantico-gpu; then
   confere "quantico-gpu IncludeCredit" "$(credito_orc hubstry-quantico-gpu)" "False"
   confere "quantico-gpu serviços" "$(servicos_orc hubstry-quantico-gpu)" "Amazon Braket,Amazon Elastic Compute Cloud - Compute"
   # O freio da ação (passo 4) cria um aviso ACTUAL:100 próprio; o de 80% é o de e-mail.
+  # O aviso de 80% é o de e-mail; a ação de freio (passo 4) pode registrar um aviso próprio de 100%.
   AV=$(avisos_orc hubstry-quantico-gpu)
-  case ",$AV," in *,ACTUAL:80,*) echo "  ok: quantico-gpu aviso de 80% ($AV)";; *) falhou "quantico-gpu sem aviso ACTUAL:80 (encontrado '$AV')";; esac
+  A80="ACTUAL|GREATER_THAN|80|PERCENTAGE|EMAIL:$EMAIL"
+  case "$AV" in
+    "$A80"|"ACTUAL|GREATER_THAN|100|PERCENTAGE|"*";$A80") echo "  ok: quantico-gpu avisos = $AV";;
+    *) falhou "quantico-gpu avisos divergentes: encontrado '$AV', esperado '$A80' (mais, no máximo, o aviso de 100% da ação)";;
+  esac
 fi
 
 passo "3. Política de freio e papel do Budgets"
@@ -85,9 +98,17 @@ aws iam create-role --role-name hubstry-budgets-actions --assume-role-policy-doc
  && aws iam attach-role-policy --role-name hubstry-budgets-actions --policy-arn arn:aws:iam::aws:policy/AWSBudgetsActionsWithAWSResourceControlAccess \
  && echo "papel criado; conferindo" && sleep 15 || falhou "criar papel do Budgets"; fi
 if aws iam get-role --role-name hubstry-budgets-actions >/dev/null 2>&1; then
-  confere "papel confia em" "$(aws iam get-role --role-name hubstry-budgets-actions --output json | jq -r '[.Role.AssumeRolePolicyDocument.Statement[].Principal.Service] | flatten | sort | join(",")')" "budgets.amazonaws.com"
-  confere "papel tem a política gerenciada do Budgets" \
-    "$(aws iam list-attached-role-policies --role-name hubstry-budgets-actions --query "length(AttachedPolicies[?PolicyName=='AWSBudgetsActionsWithAWSResourceControlAccess'])" --output text)" "1"
+  # Confiança completa (não só o principal) e nenhuma permissão além da política gerenciada do Budgets.
+  confere "papel: política de confiança completa" \
+    "$(aws iam get-role --role-name hubstry-budgets-actions --output json | jq -cS '.Role.AssumeRolePolicyDocument')" \
+    "$(echo '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"budgets.amazonaws.com"},"Action":"sts:AssumeRole"}]}' | jq -cS .)"
+  confere "papel: políticas anexadas" \
+    "$(aws iam list-attached-role-policies --role-name hubstry-budgets-actions --output json | jq -r '[.AttachedPolicies[].PolicyArn] | sort | join(",")')" \
+    "arn:aws:iam::aws:policy/AWSBudgetsActionsWithAWSResourceControlAccess"
+  confere "papel: políticas inline" \
+    "$(aws iam list-role-policies --role-name hubstry-budgets-actions --output json | jq -r '.PolicyNames | sort | join(",")')" ""
+  confere "papel: limite de permissões" \
+    "$(aws iam get-role --role-name hubstry-budgets-actions --output json | jq -r '.Role.PermissionsBoundary.PermissionsBoundaryArn // ""')" ""
 fi
 
 passo "4. Ação automática de freio em 100% do orçamento quântico/GPU"
@@ -106,6 +127,7 @@ if [ -n "$ACOES" ]; then
   confere "ações de freio" "$(echo "$ACOES" | jq '.Actions | length')" "1"
   confere "ação: definição" "$(echo "$ACOES" | jq -r '.Actions[0] | [.ActionType, .ApprovalModel, (.ActionThreshold.ActionThresholdValue|tostring|sub("\\.0$";"")), .ActionThreshold.ActionThresholdType, .Definition.IamActionDefinition.PolicyArn, (.Definition.IamActionDefinition.Users // [] | sort | join("+")), .ExecutionRoleArn] | join(" | ")')" \
     "APPLY_IAM_POLICY | AUTOMATIC | 100 | PERCENTAGE | $POLITICA_ARN | $USUARIO_FREIO | $PAPEL_ARN"
+  confere "ação: destinatários" "$(echo "$ACOES" | jq -r '[.Actions[0].Subscribers[] | "\(.SubscriptionType):\(.Address)"] | sort | join("+")')" "EMAIL:$EMAIL"
   if aws iam get-user --user-name "$USUARIO_FREIO" >/dev/null 2>&1; then echo "  ok: usuário $USUARIO_FREIO existe"
   else falhou "usuário $USUARIO_FREIO, alvo do freio, não existe"; fi
 else falhou "não foi possível ler as ações do orçamento quântico/GPU"; fi
