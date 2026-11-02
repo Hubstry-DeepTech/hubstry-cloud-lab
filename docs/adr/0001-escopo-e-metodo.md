@@ -2,7 +2,8 @@
 adr: 0001
 titulo: Escopo e método do laboratório
 data: 2026-09-13
-status: aceito
+status: substituido
+substituido_por: 0004
 lentes:
   primaria: architecture
   revisado_contra: [finops, security]

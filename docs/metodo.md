@@ -1,12 +1,21 @@
 ---
 titulo: Método do laboratório
-versao: 0.1
+versao: 0.2
 status: proposta
-referencia: ADR-0003
-data: 2026-09-13
+referencia: [ADR-0003, ADR-0004]
+data: 2026-11-02
 ---
 
 # Método
+
+> **Versão 0.2 (02/11/2026).** Com o ADR-0004, a unidade de trabalho passa a
+> ser a **entrega** em produção, registrada pelo modelo
+> `entregas/0000-template.md`: hipótese de produto, métrica de sucesso, deploy
+> real e decisão de persistir, pivotar ou cortar. As regras de evidência e os
+> três custos abaixo continuam valendo para toda entrega. O contrato do achado
+> e os cinco eixos seguem disponíveis para quando uma entrega envolver
+> portabilidade, soberania ou interoperabilidade, mas deixam de ser
+> pré-condição.
 
 Documento operacional referenciado pelo ADR-0003. Define o que cada
 experimento registra e sob quais critérios. Muda com mais frequência que o
