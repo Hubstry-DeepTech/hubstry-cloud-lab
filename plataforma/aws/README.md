@@ -88,7 +88,7 @@ Os valores vêm de `scripts/estimar_custos.py`, que consulta a AWS Price List AP
 | Execução de código de terceiros (GuruDev Runtime) atingir recursos internos | Tarefas efêmeras sem rota para a VPC interna, sem papel IAM com acesso a dados, com limite de tempo e de memória |
 | Consumo rápido de crédito em GPU ou Braket | Freio automático de orçamento; simulador local como padrão |
 | Inquilino afetar outro no RDS compartilhado | Usuário por banco, limites de conexão por usuário, monitoramento de CPU e conexões |
-| Root em uso diário | **Risco aceito pelo Guilherme em 02/11/2026**, depois de o login do `admin-solo` falhar. A Luna recomenda concluir a 0002 antes da fundação; a decisão foi seguir com o root. Consequência: o freio quântico/GPU, apontado ao `admin-solo`, não age sobre o root; os alertas por e-mail continuam. Compensação mínima: MFA no root, a conferir. Reavaliação obrigatória no gatilho "primeiro cliente em produção" (seção 9), junto com AWS Organizations e Identity Center |
+| Root em uso diário | **Risco aceito pelo Guilherme em 02/11/2026**, depois de o login do `admin-solo` falhar. A Luna recomenda concluir a 0002 antes da fundação; a decisão foi seguir com o root. Consequência: o freio quântico/GPU, apontado ao `admin-solo`, não age sobre o root; os alertas por e-mail continuam. Compensação: MFA ativado no root pelo Guilherme em 02/11/2026. Reavaliação obrigatória no gatilho "primeiro cliente em produção" (seção 9), junto com AWS Organizations e Identity Center |
 | Dependência de serviços proprietários | Registrar na entrega quando houver; a tese multicloud do ADR-0003 continua como horizonte |
 
 ## 9. Estado atual e gatilhos de evolução
