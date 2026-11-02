@@ -1,6 +1,6 @@
 # Plataforma Hubstry na AWS
 
-Versão 3, de 02/11/2026. Status: proposta para auditoria da Luna. Referência: ADR-0004.
+Versão 3.1, de 02/11/2026. Status: direção aprovada pela Luna; ajustes da segunda auditoria incorporados. Referência: ADR-0004.
 
 Nenhum recurso desta especificação foi criado além dos guardrails de custo da entrega 0001.
 
@@ -17,7 +17,7 @@ Oferecer uma base compartilhada para colocar em produção os produtos do portf�
 | Região principal | `sa-east-1` (São Paulo) |
 | Região secundária | `us-east-1`, só para o Amazon Braket, que não existe em São Paulo |
 | Operação | Fundador solo; revisão independente pela Luna; decisão do Guilherme |
-| Estado atual da conta | Sem AWS Organizations nem Identity Center (verificado em todas as regiões em 02/11/2026). Usuários IAM: `admin-solo` (sem políticas e sem MFA) e `alexandria-deploy-user` (duas chaves sem uso desde agosto de 2025). Sem computação ativa. Há 9 buckets S3, 4 distribuições CloudFront e 2 apps Amplify em `us-east-2`, ligados às Alexandrias e a sites |
+| Estado atual da conta | Sem AWS Organizations nem Identity Center (verificado em todas as regiões em 02/11/2026). Usuários IAM: `admin-solo` (com `AdministratorAccess` desde 02/11/2026, sem MFA e sem uso: o login dele não funcionou e o Guilherme voltou ao root) e `alexandria-deploy-user` (duas chaves de acesso **desativadas** pelo Guilherme em 02/11/2026; estavam sem uso desde agosto de 2025, e nenhum repositório da Alexandria faz deploy com elas). Acesso diário pelo usuário root, por decisão do Guilherme. Sem computação ativa. Há 9 buckets S3, 4 distribuições CloudFront e 2 apps Amplify em `us-east-2`, ligados às Alexandrias e a sites |
 
 A escolha de `sa-east-1` tem três fundamentos. A latência é menor para o público brasileiro. Os dados ficam no país. E o X-Layer lê o bucket público do ONS (Operador Nacional do Sistema Elétrico), `ons-aws-prod-opendata`, que está em `sa-east-1`, o que evita transferência entre regiões.
 
@@ -64,7 +64,7 @@ Princípio de custo: tudo o que não precisa ficar ligado roda sob demanda. GPU 
 | Etapa | Entrega | Critério de avanço |
 |---|---|---|
 | 0001 | Guardrails de custo | Entregue |
-| 0002 | Acesso diário sem root: usuário `admin-solo` com `AdministratorAccess` e MFA; chaves paradas desativadas | Login sem root funcionando, com MFA |
+| 0002 | Acesso diário sem root: usuário `admin-solo` com `AdministratorAccess` e MFA | **Suspensa por decisão do Guilherme (02/11/2026).** Parte feita: chaves da Alexandria desativadas e `AdministratorAccess` anexada. Parte não feita: MFA e login do `admin-solo`. Divergência registrada na seção 8 |
 | 0003 | Fundação: VPC, ALB, cluster ECS, ECR, provedor OIDC, convenções de tags | Auditoria da Luna; custo fixo medido |
 | 0004 | RDS compartilhado com banco do Nautam e snapshot automatizado | Banco privado, backup ativo |
 | 0005 | Nautam em produção: API no ECS, frontend no Amplify | CI verde, testes de saúde e de persistência |
@@ -88,7 +88,7 @@ Os valores vêm de `scripts/estimar_custos.py`, que consulta a AWS Price List AP
 | Execução de código de terceiros (GuruDev Runtime) atingir recursos internos | Tarefas efêmeras sem rota para a VPC interna, sem papel IAM com acesso a dados, com limite de tempo e de memória |
 | Consumo rápido de crédito em GPU ou Braket | Freio automático de orçamento; simulador local como padrão |
 | Inquilino afetar outro no RDS compartilhado | Usuário por banco, limites de conexão por usuário, monitoramento de CPU e conexões |
-| Root em uso diário | Etapa 0002: `admin-solo` com MFA. O Identity Center exige AWS Organizations e entra junto com a separação por contas (seção 9) |
+| Root em uso diário | **Risco aceito pelo Guilherme em 02/11/2026**, depois de o login do `admin-solo` falhar. A Luna recomenda concluir a 0002 antes da fundação; a decisão foi seguir com o root. Consequência: o freio quântico/GPU, apontado ao `admin-solo`, não age sobre o root; os alertas por e-mail continuam. Compensação mínima: MFA no root, a conferir. Reavaliação obrigatória no gatilho "primeiro cliente em produção" (seção 9), junto com AWS Organizations e Identity Center |
 | Dependência de serviços proprietários | Registrar na entrega quando houver; a tese multicloud do ADR-0003 continua como horizonte |
 
 ## 9. Estado atual e gatilhos de evolução
