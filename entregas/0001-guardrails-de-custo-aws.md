@@ -78,8 +78,8 @@ Persistir. Pendências:
 
 1. apagar o `hubstry-guarda-credito`, que é ineficaz e conta como terceiro
    orçamento (decisão do Guilherme);
-2. aplicar o freio também ao papel do Identity Center quando o trabalho
-   diário migrar para ele, já que o freio não alcança o root.
+2. passar o trabalho diário para o `admin-solo` (entrega 0002), já que o
+   freio está apontado para ele e não alcança o root.
 
 ## Próxima entrega
 
