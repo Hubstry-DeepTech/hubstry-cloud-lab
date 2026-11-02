@@ -46,6 +46,21 @@ Executado no AWS CloudShell em 02/11/2026, com o script
 | Freio `hubstry-freio-quantico-gpu` | Nega `braket:CreateQuantumTask`, `braket:CreateJob` e instâncias EC2 `g*`, `p*`, `inf*`, `trn*`, `dl*` | aplicado automaticamente em 100% do orçamento quântico/GPU ao usuário `admin-solo`; status `STANDBY` |
 | Alerta de anomalias | Diário, impacto ≥ US$ 20, no monitor por serviço existente | ativo; a primeira tentativa falhou porque a conta já tinha um monitor por serviço, e a assinatura foi ligada a ele |
 
+## Evidência da configuração efetiva
+
+Saída do resumo do script em 02/11/2026 (CloudShell, `sa-east-1`):
+
+```text
+|  hubstry-guarda-credito |  50.0  |  True   |
+|  hubstry-mensal-total   |  150.0 |  False  |
+|  hubstry-quantico-gpu   |  60.0  |  False  |
+|  b24e09df-ebb6-471e-b309-0429c5098b3b |  STANDBY |  AUTOMATIC  |
+```
+
+A terceira coluna dos orçamentos é `IncludeCredit`. A última linha é a ação de freio: em espera, com aprovação automática. O alerta de anomalias foi confirmado pela mensagem "alerta de anomalias criado".
+
+**Limite reconhecido:** orçamento e freio não são teto rígido de gasto. O Budgets atualiza o custo com atraso de horas, e o freio só bloqueia novas tarefas do Braket e novas instâncias de GPU; recursos já ligados continuam cobrando até serem desligados.
+
 ## Medição
 
 **Fato.** O orçamento preexistente `hubstry-guarda-credito` (US$ 50) tem

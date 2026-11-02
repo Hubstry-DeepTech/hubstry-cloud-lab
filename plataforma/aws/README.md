@@ -77,7 +77,7 @@ Cada etapa é uma entrega no sentido do ADR-0004: hipótese, métrica, deploy re
 
 ## 7. Custo
 
-O custo fixo da base fica em torno de US$ 60 por mês em `sa-east-1`, somando balanceador, RDS, armazenamento, ECR e logs. Cada serviço contínuo acrescenta cerca de US$ 19 por mês (0,25 vCPU, 0,5 GB e IP público). O restante é por uso: execuções efêmeras, chamadas de API, consultas no Athena, horas de GPU e tarefas do Braket.
+O **subtotal** fixo da base fica em torno de US$ 60 por mês em `sa-east-1`, somando balanceador, RDS, armazenamento, ECR e logs. Não é o custo total de propriedade: ainda faltam backups além da cota gratuita, tráfego de saída e, quando os gatilhos da seção 9 dispararem, VPC endpoints e o isolamento do runtime. Cada serviço contínuo acrescenta cerca de US$ 19 por mês (0,25 vCPU, 0,5 GB e IP público). O restante é por uso: execuções efêmeras, chamadas de API, consultas no Athena, horas de GPU e tarefas do Braket.
 
 Os valores vêm de `scripts/estimar_custos.py`, que consulta a AWS Price List API e falha quando um preço é ambíguo. A execução de 02/11/2026 deu US$ 86,36 por mês para o Nautam sozinho em `sa-east-1` (US$ 54,79 em `us-east-1`). O estimador ainda precisa ser estendido para o cenário multiprojeto.
 
@@ -91,14 +91,19 @@ Os valores vêm de `scripts/estimar_custos.py`, que consulta a AWS Price List AP
 | Root em uso diário | Etapa 0002: Identity Center |
 | Dependência de serviços proprietários | Registrar na entrega quando houver; a tese multicloud do ADR-0003 continua como horizonte |
 
-## 9. Decisões em aberto para a auditoria
+## 9. Estado atual e gatilhos de evolução
 
-Levantadas pelas revisões cegas do Nautam via Bedrock (Llama 4 Maverick e DeepSeek R1, 02/11/2026) e reavaliadas no contexto da plataforma compartilhada:
+**Estado em 02/11/2026:** nenhum produto do portfólio tem clientes, dados de clientes ou usuários externos executando código. A prospecção está em andamento. A plataforma é desenhada para esse estado real, e cada proteção mais cara entra quando o fato que a justifica acontecer, e não antes. As revisões cegas via Bedrock (Llama 4 Maverick e DeepSeek R1) e a auditoria da Luna levantaram os pontos abaixo.
 
-1. **Sub-redes públicas ou privadas para as tarefas.** Com IP público e entrada restrita ao balanceador, o custo é menor e foi a decisão aprovada para o Nautam isolado. A plataforma, porém, vai executar código de terceiros (GuruDev Runtime) e guardar dados de clientes (Security). Sub-redes privadas com VPC endpoints para ECR, Secrets Manager, CloudWatch Logs e STS reforçam o isolamento, a um custo fixo por endpoint. Pede decisão explícita.
-2. **RDS compartilhado ou dedicado.** Uma instância com um banco e um usuário por projeto atende a fase de POC. A restauração de backup, porém, vale para a instância inteira, e um inquilino pode afetar o desempenho dos outros. O Security, ao receber dados de clientes, tende a exigir banco próprio.
-3. **Autenticação das APIs dos inquilinos.** A API do Nautam não tem autenticação nas rotas de escrita. Nenhuma API de inquilino deve ir a público sem credencial. A plataforma deve oferecer um padrão comum: chaves no API Gateway ou Cognito.
-4. **Separação por contas AWS.** Separar produção, experimentos caros e, no futuro, o IoT Core em contas distintas, via AWS Organizations, é a prática recomendada para isolamento e controle de custo. Fica para quando houver clientes.
+| Tema | Decisão agora | Gatilho para evoluir | Evolução |
+|---|---|---|---|
+| Autenticação das APIs | **Obrigatória desde o primeiro deploy público.** Chaves de API aleatórias, guardadas como hash, com escopo, rotação e revogação | Primeiro cliente ou parceiro com acesso próprio | Identidade padronizada por inquilino (OAuth2/OIDC, Cognito) |
+| Rede | Sub-redes públicas, IP público nas tarefas, entrada só pelo security group do balanceador; sem NAT Gateway | Primeiro dado de cliente ou primeira execução de código de terceiros | Sub-redes privadas com VPC endpoints para os inquilinos afetados |
+| Banco | Um RDS compartilhado, com um banco e um usuário por projeto | Primeiro dado de cliente no Security, ou disputa de recursos entre inquilinos | RDS dedicado para o inquilino afetado |
+| GuruDev Runtime | Execução só pelo próprio fundador, para desenvolvimento | Primeiro usuário externo executando código | Runtime isolado: tarefas efêmeras sem rota para a VPC interna, sem credenciais de outros produtos, com limite de tempo e memória |
+| Contas AWS | Conta única | Primeiro cliente em produção, ou gasto recorrente relevante em GPU e Braket | Separar produção e experimentos caros via AWS Organizations; não uma conta por produto |
+
+A autenticação é a única proteção que não espera gatilho. Mesmo sem dados de clientes, uma rota de escrita aberta na internet permite que qualquer pessoa grave no banco e gere custo.
 
 ## 10. Fora do escopo desta versão
 
