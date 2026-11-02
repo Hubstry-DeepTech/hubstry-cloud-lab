@@ -28,7 +28,7 @@ tempo:
 links:
   prs: []
   deploy: plataforma/aws/scripts/orcamentos.sh
-  revisao_luna: null
+  revisao_luna: "PR #1, três rodadas"
 ---
 
 ## Hipótese
@@ -73,8 +73,30 @@ anexadas, inline e limite de permissões). Divergência e falha nos comandos
 de conferência do resumo contam como erro, e o script sai com código 1. A
 verificação foi testada com um `aws` simulado nos cenários correto e
 divergente, e também com destinatário trocado, política inline extra e
-confiança ampliada; falta rodar a versão nova no CloudShell para registrar a saída
-real aqui.
+confiança ampliada.
+
+**Execução real da versão conferente** (CloudShell, usuário `admin-solo`,
+02/11/2026, commit `dc5ad45`). A primeira execução, no commit `e651289`,
+acusou duas divergências nos avisos: a API omite `ThresholdType` quando é
+o padrão (`PERCENTAGE`), e o `aws` simulado incluía o campo. Era defeito do
+script, não da conta; corrigido, a segunda execução passou inteira:
+
+```text
+ok: mensal-total limite = 150 | IncludeCredit = False
+ok: mensal-total avisos = ACTUAL>100%, ACTUAL>50%, FORECASTED>100%, todos EMAIL:guilhermemachado.ceo@hubstry.dev
+ok: quantico-gpu limite = 60 | IncludeCredit = False | serviços = Amazon Braket, Amazon Elastic Compute Cloud - Compute
+ok: quantico-gpu avisos = ACTUAL>80%, EMAIL:guilhermemachado.ceo@hubstry.dev
+ok: documento da política de freio (v1) idêntico ao esperado
+ok: papel: confiança completa só budgets.amazonaws.com; só a política gerenciada do Budgets; sem inline; sem limite de permissões
+ok: ação = APPLY_IAM_POLICY | AUTOMATIC | 100 | PERCENTAGE | hubstry-freio-quantico-gpu | admin-solo | hubstry-budgets-actions; destinatário EMAIL:guilhermemachado.ceo@hubstry.dev; status STANDBY
+ok: usuário admin-solo existe
+ok: anomalias = DAILY | monitor 44333b9b | EMAIL:guilhermemachado.ceo@hubstry.dev | ANOMALY_TOTAL_IMPACT_ABSOLUTE >= 20
+AVISO: orçamento que desconta créditos e por isso não alerta: hubstry-guarda-credito
+== Todos os guardrails existem e conferem com a configuração esperada.
+```
+
+Na mesma sessão, `get-account-summary` devolveu `AccountMFAEnabled = 1` e
+`AccountAccessKeysPresent = 0`: root com MFA e sem chaves de acesso.
 
 **Limite reconhecido:** orçamento e freio não são teto rígido de gasto. O Budgets atualiza o custo com atraso de horas, e o freio só bloqueia novas tarefas do Braket e novas instâncias de GPU; recursos já ligados continuam cobrando até serem desligados.
 
