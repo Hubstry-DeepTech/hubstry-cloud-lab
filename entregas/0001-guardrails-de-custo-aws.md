@@ -98,11 +98,9 @@ Persistir. Pendências:
 
 1. apagar o `hubstry-guarda-credito`, que é ineficaz e conta como terceiro
    orçamento (decisão do Guilherme);
-2. acesso diário: a entrega 0002 (`admin-solo` com MFA) foi suspensa por
-   decisão do Guilherme, que segue com o root. O freio apontado ao
-   `admin-solo` fica armado, mas não age sobre o root; os alertas por
-   e-mail valem para qualquer usuário. Ver o risco aceito em
-   `plataforma/aws/README.md`, seção 8.
+2. acesso diário: resolvido pela entrega 0002 em 02/11/2026. O trabalho
+   diário passa ao `admin-solo`, com MFA, e o freio apontado a ele fica
+   efetivo. O root, que o freio não alcança, fica reservado.
 
 ## Próxima entrega
 
