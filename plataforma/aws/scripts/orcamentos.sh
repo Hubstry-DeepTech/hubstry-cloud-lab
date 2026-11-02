@@ -43,12 +43,13 @@ servicos_orc() { aws budgets describe-budget --account-id "$ACC" --budget-name "
 avisos_orc() {
   # Cada aviso vira "TIPO|OPERADOR|LIMIAR|TIPO_DO_LIMIAR|destinatários", em linhas ordenadas.
   # Os destinatários vêm de describe-subscribers-for-notification, um aviso por vez.
+  # A API omite ThresholdType quando é o padrão (PERCENTAGE); por isso o "// PERCENTAGE".
   local notas n subs
   notas=$(aws budgets describe-notifications-for-budget --account-id "$ACC" --budget-name "$1" --output json) || { echo "ERRO"; return; }
   echo "$notas" | jq -c '.Notifications[]' | while read -r n; do
     subs=$(aws budgets describe-subscribers-for-notification --account-id "$ACC" --budget-name "$1" --notification "$n" --output json \
       | jq -r '[.Subscribers[] | "\(.SubscriptionType):\(.Address)"] | sort | join("+")') || subs="ERRO"
-    echo "$n" | jq -r --arg s "$subs" '"\(.NotificationType)|\(.ComparisonOperator)|\(.Threshold|tostring|sub("\\.0$";""))|\(.ThresholdType)|\($s)"'
+    echo "$n" | jq -r --arg s "$subs" '"\(.NotificationType)|\(.ComparisonOperator)|\(.Threshold|tostring|sub("\\.0$";""))|\(.ThresholdType // "PERCENTAGE")|\($s)"'
   done | sort | paste -sd ';' -
 }
 
