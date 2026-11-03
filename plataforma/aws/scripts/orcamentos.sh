@@ -37,6 +37,9 @@ confere() {
 existe_orc() { aws budgets describe-budget --account-id "$ACC" --budget-name "$1" >/dev/null 2>&1; }
 # Limite, IncludeCredit e filtros de serviço de um orçamento, normalizados.
 limite_orc()   { aws budgets describe-budget --account-id "$ACC" --budget-name "$1" --query 'Budget.BudgetLimit.Amount' --output text | awk '{printf "%g", $1}'; }
+# Tipo, período, unidade do limite e o objeto CostTypes inteiro, normalizados.
+meta_orc()     { aws budgets describe-budget --account-id "$ACC" --budget-name "$1" --output json | jq -r '.Budget | "\(.BudgetType) \(.TimeUnit) \(.BudgetLimit.Unit)"'; }
+custos_orc()   { aws budgets describe-budget --account-id "$ACC" --budget-name "$1" --output json | jq -cS '.Budget.CostTypes'; }
 credito_orc()  { aws budgets describe-budget --account-id "$ACC" --budget-name "$1" --query 'Budget.CostTypes.IncludeCredit' --output text; }
 servicos_orc() { aws budgets describe-budget --account-id "$ACC" --budget-name "$1" --output json | jq -r '[.Budget.CostFilters.Service // [] | .[]] | sort | join(",")'; }
 # Notificações como "TIPO:limiar" ordenadas, ex.: ACTUAL:100,ACTUAL:50,FORECASTED:100
@@ -62,6 +65,8 @@ aws budgets create-budget --account-id "$ACC" \
 if existe_orc hubstry-mensal-total; then
   confere "mensal-total limite" "$(limite_orc hubstry-mensal-total)" "150"
   confere "mensal-total IncludeCredit" "$(credito_orc hubstry-mensal-total)" "False"
+  confere "mensal-total tipo/período/unidade" "$(meta_orc hubstry-mensal-total)" "COST MONTHLY USD"
+  confere "mensal-total CostTypes completo" "$(custos_orc hubstry-mensal-total)" "$(echo "$CB" | jq -cS .)"
   confere "mensal-total avisos" "$(avisos_orc hubstry-mensal-total)" \
     "ACTUAL|GREATER_THAN|100|PERCENTAGE|EMAIL:$EMAIL;ACTUAL|GREATER_THAN|50|PERCENTAGE|EMAIL:$EMAIL;FORECASTED|GREATER_THAN|100|PERCENTAGE|EMAIL:$EMAIL"
 fi
@@ -75,6 +80,8 @@ aws budgets create-budget --account-id "$ACC" \
 if existe_orc hubstry-quantico-gpu; then
   confere "quantico-gpu limite" "$(limite_orc hubstry-quantico-gpu)" "60"
   confere "quantico-gpu IncludeCredit" "$(credito_orc hubstry-quantico-gpu)" "False"
+  confere "quantico-gpu tipo/período/unidade" "$(meta_orc hubstry-quantico-gpu)" "COST MONTHLY USD"
+  confere "quantico-gpu CostTypes completo" "$(custos_orc hubstry-quantico-gpu)" "$(echo "$CB" | jq -cS .)"
   confere "quantico-gpu serviços" "$(servicos_orc hubstry-quantico-gpu)" "Amazon Braket,Amazon Elastic Compute Cloud - Compute"
   # O freio da ação (passo 4) cria um aviso ACTUAL:100 próprio; o de 80% é o de e-mail.
   # O aviso de 80% é o de e-mail; a ação de freio (passo 4) pode registrar um aviso próprio de 100%,
